@@ -1,0 +1,2 @@
+Hello from sys_writeFile!
+Second line.
