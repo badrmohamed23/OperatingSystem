@@ -39,6 +39,8 @@ PCB *create_process(int pid, const char *program_filename, int arrival_time)
     p->program_counter = 0;
     p->mem_start = -1;
     p->mem_end = -1;
+    p->in_memory = false;
+    p->swap_start = -1;
     p->waiting_time = 0;
     p->burst_time = 0; // will set after reading instructions
     p->instructions = NULL;

@@ -88,28 +88,18 @@ void sem_signal(ResourceType res, PCB *p)
 
 void sys_print(const char *text)
 {
-    sem_wait(RES_USER_OUTPUT, NULL);
-
     if (text)
         printf("%s", text);
-
-    sem_signal(RES_USER_OUTPUT, NULL);
 }
 
 void sys_input(char *buffer, int size)
 {
-    sem_wait(RES_USER_INPUT, NULL);
-
     if (!buffer || size <= 0)
-    {
-        sem_signal(RES_USER_INPUT, NULL);
         return;
-    }
 
     if (fgets(buffer, size, stdin) == NULL)
     {
         buffer[0] = '\0';
-        sem_signal(RES_USER_INPUT, NULL);
         return;
     }
 
@@ -124,8 +114,6 @@ void sys_input(char *buffer, int size)
             buffer[len - 1] = '\0';
         }
     }
-
-    sem_signal(RES_USER_INPUT, NULL);
 }
 
 // =====================================================================
@@ -134,20 +122,14 @@ void sys_input(char *buffer, int size)
 
 bool sys_readFile(const char *filename, char *out_buffer, int max_size)
 {
-    sem_wait(RES_FILE, NULL);
-
     if (!filename || !out_buffer || max_size <= 0)
-    {
-        sem_signal(RES_FILE, NULL);
         return false;
-    }
 
     FILE *f = fopen(filename, "r");
     if (!f)
     {
         printf("[sys_readFile] Failed to open file '%s' for reading.\n", filename);
         out_buffer[0] = '\0';
-        sem_signal(RES_FILE, NULL);
         return false;
     }
 
@@ -160,25 +142,18 @@ bool sys_readFile(const char *filename, char *out_buffer, int max_size)
     out_buffer[total] = '\0';
 
     fclose(f);
-    sem_signal(RES_FILE, NULL);
     return true;
 }
 
 bool sys_writeFile(const char *filename, const char *data)
 {
-    sem_wait(RES_FILE, NULL);
-
     if (!filename || !data)
-    {
-        sem_signal(RES_FILE, NULL);
         return false;
-    }
 
     FILE *f = fopen(filename, "w");
     if (!f)
     {
         printf("[sys_writeFile] Failed to open file '%s' for writing.\n", filename);
-        sem_signal(RES_FILE, NULL);
         return false;
     }
 
@@ -188,11 +163,9 @@ bool sys_writeFile(const char *filename, const char *data)
     if (written < strlen(data))
     {
         printf("[sys_writeFile] Warning: not all data written to '%s'.\n", filename);
-        sem_signal(RES_FILE, NULL);
         return false;
     }
 
-    sem_signal(RES_FILE, NULL);
     return true;
 }
 

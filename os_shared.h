@@ -60,6 +60,8 @@ typedef struct PCB
     int program_counter;     // index of next instruction to execute
     int mem_start;           // starting memory word index (inclusive)
     int mem_end;             // ending memory word index (inclusive)
+    bool in_memory;          // whether this process currently has memory allocated
+    int swap_start;          // starting swap word index if swapped out
     int waiting_time;        // for HRRN: total time spent in ready queue
     int burst_time;          // total remaining instructions (for HRRN)
     char **instructions;     // array of strings, each = one instruction
@@ -113,6 +115,10 @@ char *load_variable(PCB *p, char *var_name);
 
 // Debug helper: print all memory words and their owners
 void print_memory(void);
+
+// Swap support for Phase 5
+bool swap_out(PCB *p);
+bool swap_in(PCB *p);
 
 /* ========================================================================
    Process creation and interpreter (Member 1)

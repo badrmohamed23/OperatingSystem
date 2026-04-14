@@ -4,8 +4,31 @@
 MemoryWord memory[MEMORY_SIZE];
 int mem_owner[MEMORY_SIZE]; // -1 = free, otherwise PID
 
+// Swap storage for swapped-out processes
+static MemoryWord swap_space[MEMORY_SIZE];
+static int swap_owner[MEMORY_SIZE]; // -1 = free, otherwise PID
+
 // For now, each process gets a fixed block of 3 words
 #define WORDS_PER_PROCESS 3
+
+static int find_free_block(int *owner_array, int size)
+{
+    for (int i = 0; i <= size - WORDS_PER_PROCESS; ++i)
+    {
+        bool all_free = true;
+        for (int j = 0; j < WORDS_PER_PROCESS; ++j)
+        {
+            if (owner_array[i + j] != -1)
+            {
+                all_free = false;
+                break;
+            }
+        }
+        if (all_free)
+            return i;
+    }
+    return -1;
+}
 
 void init_memory(void)
 {
@@ -14,6 +37,9 @@ void init_memory(void)
         memory[i].name[0] = '\0';
         memory[i].value[0] = '\0';
         mem_owner[i] = -1;
+        swap_space[i].name[0] = '\0';
+        swap_space[i].value[0] = '\0';
+        swap_owner[i] = -1;
     }
 }
 
@@ -47,11 +73,72 @@ bool allocate_memory_block(PCB *p)
             }
             p->mem_start = i;
             p->mem_end = i + needed - 1;
+            p->in_memory = true;
             return true;
         }
     }
 
     return false; // no suitable block
+}
+
+bool swap_out(PCB *p)
+{
+    if (!p || !p->in_memory)
+        return false;
+
+    int swap_start = find_free_block(swap_owner, MEMORY_SIZE);
+    if (swap_start < 0)
+        return false;
+
+    for (int j = 0; j < WORDS_PER_PROCESS; ++j)
+    {
+        int src = p->mem_start + j;
+        int dst = swap_start + j;
+        swap_owner[dst] = p->pid;
+        strcpy(swap_space[dst].name, memory[src].name);
+        strcpy(swap_space[dst].value, memory[src].value);
+    }
+
+    int old_start = p->mem_start;
+    int old_end = p->mem_end;
+    free_memory_block(p);
+    p->swap_start = swap_start;
+    p->in_memory = false;
+
+    printf("[Memory] Swapped out PID %d from mem[%d..%d] to swap[%d..%d]\n",
+           p->pid, old_start, old_end, swap_start, swap_start + WORDS_PER_PROCESS - 1);
+    return true;
+}
+
+bool swap_in(PCB *p)
+{
+    if (!p || p->in_memory)
+        return true;
+
+    if (p->swap_start < 0)
+        return false;
+
+    if (!allocate_memory_block(p))
+        return false;
+
+    for (int j = 0; j < WORDS_PER_PROCESS; ++j)
+    {
+        int src = p->swap_start + j;
+        int dst = p->mem_start + j;
+        strcpy(memory[dst].name, swap_space[src].name);
+        strcpy(memory[dst].value, swap_space[src].value);
+        swap_owner[src] = -1;
+        swap_space[src].name[0] = '\0';
+        swap_space[src].value[0] = '\0';
+    }
+
+    int restored_start = p->mem_start;
+    int restored_end = p->mem_end;
+    p->swap_start = -1;
+    p->in_memory = true;
+
+    printf("[Memory] Swapped in PID %d to mem[%d..%d]\n", p->pid, restored_start, restored_end);
+    return true;
 }
 
 void free_memory_block(PCB *p)
@@ -74,6 +161,7 @@ void free_memory_block(PCB *p)
 
     p->mem_start = -1;
     p->mem_end = -1;
+    p->in_memory = false;
 }
 
 bool store_variable(PCB *p, char *var_name, char *value)

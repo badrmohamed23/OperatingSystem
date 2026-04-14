@@ -1,104 +1,5 @@
 #include "os_shared.h"
 
-// Simple per-process variable table used only for Phase 2 stub execution
-#define MAX_PROCESSES 10
-#define MAX_VARS_PER_PROCESS 20
-
-typedef struct
-{
-    char name[MAX_VAR_NAME];
-    char value[MAX_VAR_VALUE];
-} VarEntry;
-
-typedef struct
-{
-    int pid; // 0 means unused
-    VarEntry vars[MAX_VARS_PER_PROCESS];
-} VarTable;
-
-static VarTable var_tables[MAX_PROCESSES];
-
-static VarTable *get_var_table_for_pid(int pid)
-{
-    if (pid <= 0)
-        return NULL;
-
-    // Look for existing table
-    for (int i = 0; i < MAX_PROCESSES; ++i)
-    {
-        if (var_tables[i].pid == pid)
-            return &var_tables[i];
-    }
-
-    // Find empty slot
-    for (int i = 0; i < MAX_PROCESSES; ++i)
-    {
-        if (var_tables[i].pid == 0)
-        {
-            var_tables[i].pid = pid;
-            for (int j = 0; j < MAX_VARS_PER_PROCESS; ++j)
-            {
-                var_tables[i].vars[j].name[0] = '\0';
-                var_tables[i].vars[j].value[0] = '\0';
-            }
-            return &var_tables[i];
-        }
-    }
-
-    return NULL; // no space
-}
-
-static void set_var_value(int pid, const char *name, const char *value)
-{
-    VarTable *vt = get_var_table_for_pid(pid);
-    if (!vt || !name || !value)
-        return;
-
-    // If variable exists, overwrite
-    for (int i = 0; i < MAX_VARS_PER_PROCESS; ++i)
-    {
-        if (vt->vars[i].name[0] != '\0' && strcmp(vt->vars[i].name, name) == 0)
-        {
-            strncpy(vt->vars[i].value, value, MAX_VAR_VALUE - 1);
-            vt->vars[i].value[MAX_VAR_VALUE - 1] = '\0';
-            return;
-        }
-    }
-
-    // Otherwise, put into first empty slot
-    for (int i = 0; i < MAX_VARS_PER_PROCESS; ++i)
-    {
-        if (vt->vars[i].name[0] == '\0')
-        {
-            strncpy(vt->vars[i].name, name, MAX_VAR_NAME - 1);
-            vt->vars[i].name[MAX_VAR_NAME - 1] = '\0';
-
-            strncpy(vt->vars[i].value, value, MAX_VAR_VALUE - 1);
-            vt->vars[i].value[MAX_VAR_VALUE - 1] = '\0';
-            return;
-        }
-    }
-
-    printf("[Interpreter] Warning: variable table full for PID %d, cannot store '%s'.\n", pid, name);
-}
-
-static const char *get_var_value(int pid, const char *name)
-{
-    VarTable *vt = get_var_table_for_pid(pid);
-    if (!vt || !name)
-        return NULL;
-
-    for (int i = 0; i < MAX_VARS_PER_PROCESS; ++i)
-    {
-        if (vt->vars[i].name[0] != '\0' && strcmp(vt->vars[i].name, name) == 0)
-        {
-            return vt->vars[i].value;
-        }
-    }
-
-    return NULL;
-}
-
 // ------------------------------------------------------------------------
 // ------------------------------------------------------------------------
 // Helper: trim leading/trailing whitespace
@@ -207,26 +108,37 @@ void execute_instruction(PCB *p)
         {
             char input_buf[MAX_VAR_VALUE];
             sys_input(input_buf, sizeof(input_buf));
-            set_var_value(p->pid, var_name, input_buf);
+            if (!sys_write_mem(p, var_name, input_buf))
+            {
+                printf("[Interpreter] Failed to store '%s' for PID %d.\n", var_name, p->pid);
+            }
         }
         else if (strcmp(src, "readFile") == 0)
         {
             char *file_var_name = strtok(NULL, " ");
-            const char *file_name = get_var_value(p->pid, file_var_name);
+            char file_name[MAX_VAR_VALUE];
             char file_buf[MAX_VAR_VALUE];
-            if (file_name && sys_readFile(file_name, file_buf, sizeof(file_buf)))
-            {
-                set_var_value(p->pid, var_name, file_buf);
-            }
-            else
+
+            if (!file_var_name || !sys_read_mem(p, file_var_name, file_name, sizeof(file_name)))
             {
                 printf("[Interpreter] readFile failed for PID %d (filename var '%s').\n", p->pid, file_var_name ? file_var_name : "(null)");
+            }
+            else if (!sys_readFile(file_name, file_buf, sizeof(file_buf)))
+            {
+                printf("[Interpreter] readFile failed for PID %d: cannot open '%s'.\n", p->pid, file_name);
+            }
+            else if (!sys_write_mem(p, var_name, file_buf))
+            {
+                printf("[Interpreter] Failed to store '%s' for PID %d.\n", var_name, p->pid);
             }
         }
         else
         {
             // Direct value assignment (e.g., assign x 5)
-            set_var_value(p->pid, var_name, src);
+            if (!sys_write_mem(p, var_name, src))
+            {
+                printf("[Interpreter] Failed to store '%s' for PID %d.\n", var_name, p->pid);
+            }
         }
     }
     // ------------------------------------------------------
@@ -235,11 +147,14 @@ void execute_instruction(PCB *p)
     else if (strcmp(cmd, "print") == 0)
     {
         char *var_name = strtok(NULL, " ");
-        const char *val = get_var_value(p->pid, var_name);
-        if (!val)
-            val = "(undefined)";
+        char value_buf[MAX_VAR_VALUE];
+        const char *val = "(undefined)";
+
+        if (var_name && sys_read_mem(p, var_name, value_buf, sizeof(value_buf)))
+            val = value_buf;
+
         char buffer[MAX_VAR_VALUE + MAX_VAR_NAME + 32];
-        snprintf(buffer, sizeof(buffer), "PID %d: %s = %s", p->pid, var_name ? var_name : "(null)", val);
+        snprintf(buffer, sizeof(buffer), "PID %d: %s = %s\n", p->pid, var_name ? var_name : "(null)", val);
         sys_print(buffer);
     }
     // ------------------------------------------------------
@@ -249,14 +164,15 @@ void execute_instruction(PCB *p)
     {
         char *from_name = strtok(NULL, " ");
         char *to_name = strtok(NULL, " ");
+        char from_buf[MAX_VAR_VALUE];
+        char to_buf[MAX_VAR_VALUE];
+        const char *from_val = "(undefined)";
+        const char *to_val = "(undefined)";
 
-        const char *from_val = get_var_value(p->pid, from_name);
-        const char *to_val = get_var_value(p->pid, to_name);
-
-        if (!from_val)
-            from_val = "(undefined)";
-        if (!to_val)
-            to_val = "(undefined)";
+        if (from_name && sys_read_mem(p, from_name, from_buf, sizeof(from_buf)))
+            from_val = from_buf;
+        if (to_name && sys_read_mem(p, to_name, to_buf, sizeof(to_buf)))
+            to_val = to_buf;
 
         char buffer[MAX_VAR_VALUE * 2 + 64];
         snprintf(buffer, sizeof(buffer), "PID %d: from %s to %s\n", p->pid, from_val, to_val);
@@ -269,19 +185,18 @@ void execute_instruction(PCB *p)
     {
         char *file_var_name = strtok(NULL, " ");
         char *data_var_name = strtok(NULL, " ");
+        char file_name[MAX_VAR_VALUE];
+        char data_val[MAX_VAR_VALUE];
 
-        const char *file_name = get_var_value(p->pid, file_var_name);
-        const char *data_val = get_var_value(p->pid, data_var_name);
-        if (!file_name || !data_val)
+        if (!file_var_name || !data_var_name ||
+            !sys_read_mem(p, file_var_name, file_name, sizeof(file_name)) ||
+            !sys_read_mem(p, data_var_name, data_val, sizeof(data_val)))
         {
             printf("[Interpreter] writeFile missing filename or data for PID %d.\n", p->pid);
         }
-        else
+        else if (!sys_writeFile(file_name, data_val))
         {
-            if (!sys_writeFile(file_name, data_val))
-            {
-                printf("[Interpreter] writeFile failed for PID %d (file '%s').\n", p->pid, file_name);
-            }
+            printf("[Interpreter] writeFile failed for PID %d (file '%s').\n", p->pid, file_name);
         }
     }
     else
