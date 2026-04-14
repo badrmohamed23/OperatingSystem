@@ -53,6 +53,8 @@ void execute_instruction(PCB *p)
         p->program_counter++;
         if (p->program_counter >= p->num_instructions)
             p->state = FINISHED;
+        if (p->in_memory)
+            pcb_flush_to_memory(p);
         return;
     }
 
@@ -62,6 +64,8 @@ void execute_instruction(PCB *p)
         p->program_counter++;
         if (p->program_counter >= p->num_instructions)
             p->state = FINISHED;
+        if (p->in_memory)
+            pcb_flush_to_memory(p);
         return;
     }
 
@@ -107,6 +111,10 @@ void execute_instruction(PCB *p)
         else if (strcmp(src, "input") == 0)
         {
             char input_buf[MAX_VAR_VALUE];
+            // Show a clear prompt so the user knows input is required
+            char prompt[MAX_VAR_NAME + 64];
+            snprintf(prompt, sizeof(prompt), "Please enter value for %s: ", var_name);
+            sys_print(prompt);
             sys_input(input_buf, sizeof(input_buf));
             if (!sys_write_mem(p, var_name, input_buf))
             {
@@ -209,5 +217,10 @@ void execute_instruction(PCB *p)
     if (p->program_counter >= p->num_instructions)
     {
         p->state = FINISHED;
+    }
+
+    if (p->in_memory)
+    {
+        pcb_flush_to_memory(p);
     }
 }

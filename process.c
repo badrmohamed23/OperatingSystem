@@ -42,7 +42,11 @@ PCB *create_process(int pid, const char *program_filename, int arrival_time)
     p->in_memory = false;
     p->swap_start = -1;
     p->waiting_time = 0;
-    p->burst_time = 0; // will set after reading instructions
+    p->burst_time = 0;     // will set after reading instructions
+    p->remaining_time = 0; // will set after reading instructions
+    p->priority_level = 0; // start in highest-priority MLFQ queue
+    strncpy(p->program_name, program_filename, MAX_FILENAME_LEN - 1);
+    p->program_name[MAX_FILENAME_LEN - 1] = '\0';
     p->instructions = NULL;
     p->num_instructions = 0;
     p->arrival_time = arrival_time;
@@ -100,7 +104,8 @@ PCB *create_process(int pid, const char *program_filename, int arrival_time)
 
     fclose(f);
 
-    p->burst_time = p->num_instructions;
+    p->burst_time = p->num_instructions;     // total service time
+    p->remaining_time = p->num_instructions; // remaining instructions
 
     printf("Created process PID=%d from '%s' with %d instructions, arrival=%d\n",
            p->pid, program_filename, p->num_instructions, p->arrival_time);

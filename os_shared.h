@@ -10,6 +10,7 @@
    Constants
    ======================================================================== */
 #define MEMORY_SIZE 40          // number of memory words
+#define PCB_WORDS 4             // number of words reserved for PCB metadata in each block
 #define MAX_VAR_NAME 32         // max length of variable name
 #define MAX_VAR_VALUE 256       // max length of variable value (string)
 #define MAX_INSTRUCTION_LEN 256 // max length of one line of program code
@@ -21,24 +22,25 @@
    ======================================================================== */
 typedef enum
 {
-    NEW,
-    READY,
-    RUNNING,
-    BLOCKED,
-    FINISHED
+   NEW,
+   READY,
+   RUNNING,
+   BLOCKED,
+   FINISHED
 } State;
 
 typedef enum
 {
-    RES_USER_INPUT,  // mutex for taking input from keyboard
-    RES_USER_OUTPUT, // mutex for printing to screen
-    RES_FILE         // mutex for file read/write
+   RES_USER_INPUT,  // mutex for taking input from keyboard
+   RES_USER_OUTPUT, // mutex for printing to screen
+   RES_FILE         // mutex for file read/write
 } ResourceType;
 
 typedef enum
 {
-    SCHED_HRRN,
-    SCHED_RR
+   SCHED_HRRN,
+   SCHED_RR,
+   SCHED_MLFQ
 } SchedulerType;
 
 /* ========================================================================
@@ -46,8 +48,8 @@ typedef enum
    ======================================================================== */
 typedef struct
 {
-    char name[MAX_VAR_NAME];
-    char value[MAX_VAR_VALUE];
+   char name[MAX_VAR_NAME];
+   char value[MAX_VAR_VALUE];
 } MemoryWord;
 
 /* ========================================================================
@@ -55,21 +57,37 @@ typedef struct
    ======================================================================== */
 typedef struct PCB
 {
-    int pid;                 // process ID
-    State state;             // current state
-    int program_counter;     // index of next instruction to execute
-    int mem_start;           // starting memory word index (inclusive)
-    int mem_end;             // ending memory word index (inclusive)
-    bool in_memory;          // whether this process currently has memory allocated
-    int swap_start;          // starting swap word index if swapped out
-    int waiting_time;        // for HRRN: total time spent in ready queue
-    int burst_time;          // total remaining instructions (for HRRN)
-    char **instructions;     // array of strings, each = one instruction
-    int num_instructions;    // number of instructions in the program
-    int arrival_time;        // when process arrives (for scheduling)
-    int last_scheduled_time; // last time it started running (for HRRN)
-    struct PCB *next;        // for linked lists (queues)
+   int pid;                             // process ID
+   State state;                         // current state
+   int program_counter;                 // index of next instruction to execute
+   int mem_start;                       // starting memory word index (inclusive)
+   int mem_end;                         // ending memory word index (inclusive)
+   bool in_memory;                      // whether this process currently has memory allocated
+   int swap_start;                      // starting swap word index if swapped out
+   int waiting_time;                    // for HRRN: total time spent in ready queue
+   int burst_time;                      // total instructions (service time for HRRN)
+   int remaining_time;                  // remaining instructions during execution
+   int priority_level;                  // for MLFQ: 0 (highest) .. 3 (lowest)
+   char program_name[MAX_FILENAME_LEN]; // original program filename
+   char **instructions;                 // array of strings, each = one instruction
+   int num_instructions;                // number of instructions in the program
+   int arrival_time;                    // when process arrives (for scheduling)
+   int last_scheduled_time;             // last time it started running (for HRRN)
+   struct PCB *next;                    // for linked lists (queues)
 } PCB;
+
+/* ========================================================================
+   PCB <-> memory helpers
+   ------------------------------------------------------------------------
+   The project spec requires that the PCB fields live inside the simulated
+   memory. We therefore reserve the first PCB_WORDS in each allocated block
+   to hold PID, state, PC, and bounds. These helpers keep the in-memory
+   representation in sync with the PCB struct that the scheduler uses.
+   ======================================================================== */
+
+// Write the PCB's core fields (pid, state, PC, bounds) into its
+// reserved words in memory, if the process currently has memory.
+void pcb_flush_to_memory(PCB *p);
 
 /* ========================================================================
    Mutex structure (used by Member 4)
@@ -79,13 +97,13 @@ typedef struct PCB
 
 typedef struct
 {
-    int locked;              // 1 = locked, 0 = free
-    PCB *waiting_queue_head; // for later phases (real queues)
-    PCB *waiting_queue_tail; // not used yet in Phase 3
+   int locked;              // 1 = locked, 0 = free
+   PCB *waiting_queue_head; // for later phases (real queues)
+   PCB *waiting_queue_tail; // not used yet in Phase 3
 
-    // Phase 3: simple fixed-size array of waiting PIDs (no real blocking yet)
-    int waiting_pids[MAX_WAITING_PIDS];
-    int waiting_count;
+   // Phase 3: simple fixed-size array of waiting PIDs (no real blocking yet)
+   int waiting_pids[MAX_WAITING_PIDS];
+   int waiting_count;
 } Mutex;
 
 /* ========================================================================
@@ -115,6 +133,14 @@ char *load_variable(PCB *p, char *var_name);
 
 // Debug helper: print all memory words and their owners
 void print_memory(void);
+
+// Debug helper: print the swap-space ("disk") layout
+void print_swap_space(void);
+
+// Simple curses-based TUI helpers
+void ui_init(int enable);
+void ui_shutdown(void);
+void ui_draw_step(int current_time, SchedulerType algo, PCB *running);
 
 // Swap support for Phase 5
 bool swap_out(PCB *p);

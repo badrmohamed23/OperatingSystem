@@ -14,7 +14,7 @@ int main(void)
     // Initialize OS subsystems
     printf("[INIT] Initializing memory...\n");
     init_memory();
-    
+
     printf("[INIT] Initializing mutexes...\n");
     init_mutexes();
 
@@ -31,10 +31,10 @@ int main(void)
         printf("\n");
 
         SchedulerType scheduler_algo = schedulers[sched_idx];
-        
+
         printf("[INIT] Reinitializing mutexes...\n");
         init_mutexes();
-        
+
         printf("[INIT] Initializing scheduler (%s)...\n", sched_names[sched_idx]);
         init_scheduler(scheduler_algo);
 
@@ -57,9 +57,10 @@ int main(void)
                 return 1;
             }
             procs[i]->state = NEW;
-            procs[i]->burst_time = procs[i]->num_instructions;
+            procs[i]->burst_time = procs[i]->num_instructions;     // total
+            procs[i]->remaining_time = procs[i]->num_instructions; // remaining
             procs[i]->waiting_time = 0;
-            printf("✓ Process %d created: %d instructions, arrival time: %d\n", 
+            printf("✓ Process %d created: %d instructions, arrival time: %d\n",
                    procs[i]->pid, procs[i]->num_instructions, procs[i]->arrival_time);
         }
 
@@ -99,7 +100,15 @@ int main(void)
 
                         proc->state = READY;
                         proc->burst_time = proc->num_instructions;
+                        proc->remaining_time = proc->num_instructions;
                         proc->waiting_time = 0;
+                        // Mirror basic code metadata into simulated memory
+                        char len_buf[16];
+                        snprintf(len_buf, sizeof(len_buf), "%d", proc->num_instructions);
+                        store_variable(proc, "__prog_name", proc->program_name);
+                        store_variable(proc, "__prog_len", len_buf);
+                        if (proc->in_memory)
+                            pcb_flush_to_memory(proc);
                         add_to_ready(proc);
                         printf("✓ [Time %d] PID %d arrived → Ready queue\n", current_time, proc->pid);
                         print_queues();
@@ -139,10 +148,12 @@ int main(void)
 
             int executed_instructions = 0;
             p->state = RUNNING;
+            if (p->in_memory)
+                pcb_flush_to_memory(p);
 
             // Execute instructions (with quantum)
-            while (executed_instructions < quantum && 
-                   p->state == RUNNING && 
+            while (executed_instructions < quantum &&
+                   p->state == RUNNING &&
                    p->program_counter < p->num_instructions)
             {
                 printf("[T:%d S:%d] PID %d: %s\n",
@@ -166,8 +177,8 @@ int main(void)
             }
 
             // Handle round-robin preemption
-            if (scheduler_algo == SCHED_RR && 
-                executed_instructions >= quantum && 
+            if (scheduler_algo == SCHED_RR &&
+                executed_instructions >= quantum &&
                 p->state == RUNNING &&
                 p->program_counter < p->num_instructions)
             {
@@ -185,6 +196,9 @@ int main(void)
             {
                 printf("⊗ PID %d BLOCKED on resource\n", p->pid);
             }
+
+            if (p->in_memory)
+                pcb_flush_to_memory(p);
 
             print_queues();
             current_time++;
@@ -218,7 +232,7 @@ int main(void)
                 state_str = "NEW";
                 break;
             }
-            printf("  PID %d: %s (PC: %d/%d)\n", procs[i]->pid, state_str, 
+            printf("  PID %d: %s (PC: %d/%d)\n", procs[i]->pid, state_str,
                    procs[i]->program_counter, procs[i]->num_instructions);
         }
 

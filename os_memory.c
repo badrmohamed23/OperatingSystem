@@ -8,8 +8,11 @@ int mem_owner[MEMORY_SIZE]; // -1 = free, otherwise PID
 static MemoryWord swap_space[MEMORY_SIZE];
 static int swap_owner[MEMORY_SIZE]; // -1 = free, otherwise PID
 
-// For now, each process gets a fixed block of 3 words
-#define WORDS_PER_PROCESS 3
+// For now, each process gets a fixed block of N words.
+// The first PCB_WORDS within that block are reserved for PCB metadata
+// (pid, state, PC, bounds). The remaining words are available for
+// variables.
+#define WORDS_PER_PROCESS 10
 
 static int find_free_block(int *owner_array, int size)
 {
@@ -43,6 +46,60 @@ void init_memory(void)
     }
 }
 
+// ---------------------------------------------------------------------
+// PCB <-> memory synchronization
+// ---------------------------------------------------------------------
+
+// Serialize core PCB fields into the first PCB_WORDS of the
+// process's allocated block. Layout (relative to p->mem_start):
+//   0: PID
+//   1: STATE (as integer enum)
+//   2: PC (program counter)
+//   3: BOUNDS ("start-end" string for debugging)
+void pcb_flush_to_memory(PCB *p)
+{
+    if (!p)
+        return;
+
+    if (!p->in_memory)
+        return;
+
+    if (p->mem_start < 0 || p->mem_start + PCB_WORDS > MEMORY_SIZE)
+        return;
+
+    int base = p->mem_start;
+
+    char buf[64];
+
+    // Word 0: PID
+    strncpy(memory[base + 0].name, "PID", MAX_VAR_NAME - 1);
+    memory[base + 0].name[MAX_VAR_NAME - 1] = '\0';
+    snprintf(buf, sizeof(buf), "%d", p->pid);
+    strncpy(memory[base + 0].value, buf, MAX_VAR_VALUE - 1);
+    memory[base + 0].value[MAX_VAR_VALUE - 1] = '\0';
+
+    // Word 1: STATE
+    strncpy(memory[base + 1].name, "STATE", MAX_VAR_NAME - 1);
+    memory[base + 1].name[MAX_VAR_NAME - 1] = '\0';
+    snprintf(buf, sizeof(buf), "%d", (int)p->state);
+    strncpy(memory[base + 1].value, buf, MAX_VAR_VALUE - 1);
+    memory[base + 1].value[MAX_VAR_VALUE - 1] = '\0';
+
+    // Word 2: PC
+    strncpy(memory[base + 2].name, "PC", MAX_VAR_NAME - 1);
+    memory[base + 2].name[MAX_VAR_NAME - 1] = '\0';
+    snprintf(buf, sizeof(buf), "%d", p->program_counter);
+    strncpy(memory[base + 2].value, buf, MAX_VAR_VALUE - 1);
+    memory[base + 2].value[MAX_VAR_VALUE - 1] = '\0';
+
+    // Word 3: BOUNDS ("start-end")
+    strncpy(memory[base + 3].name, "BOUNDS", MAX_VAR_NAME - 1);
+    memory[base + 3].name[MAX_VAR_NAME - 1] = '\0';
+    snprintf(buf, sizeof(buf), "%d-%d", p->mem_start, p->mem_end);
+    strncpy(memory[base + 3].value, buf, MAX_VAR_VALUE - 1);
+    memory[base + 3].value[MAX_VAR_VALUE - 1] = '\0';
+}
+
 // First-fit allocation for WORDS_PER_PROCESS consecutive words
 bool allocate_memory_block(PCB *p)
 {
@@ -74,6 +131,8 @@ bool allocate_memory_block(PCB *p)
             p->mem_start = i;
             p->mem_end = i + needed - 1;
             p->in_memory = true;
+            // Initialize PCB words inside this block
+            pcb_flush_to_memory(p);
             return true;
         }
     }
@@ -137,6 +196,10 @@ bool swap_in(PCB *p)
     p->swap_start = -1;
     p->in_memory = true;
 
+    // Update PCB metadata (especially bounds) to reflect the
+    // new in-memory location.
+    pcb_flush_to_memory(p);
+
     printf("[Memory] Swapped in PID %d to mem[%d..%d]\n", p->pid, restored_start, restored_end);
     return true;
 }
@@ -173,7 +236,8 @@ bool store_variable(PCB *p, char *var_name, char *value)
         return false;
 
     // First pass: check if variable already exists in this process's block
-    for (int i = p->mem_start; i <= p->mem_end; ++i)
+    // Skip the PCB metadata words at the start of the block.
+    for (int i = p->mem_start + PCB_WORDS; i <= p->mem_end; ++i)
     {
         if (mem_owner[i] != p->pid)
             continue;
@@ -191,7 +255,8 @@ bool store_variable(PCB *p, char *var_name, char *value)
     }
 
     // Second pass: look for an empty slot in this process's block
-    for (int i = p->mem_start; i <= p->mem_end; ++i)
+    // Again skip PCB metadata words.
+    for (int i = p->mem_start + PCB_WORDS; i <= p->mem_end; ++i)
     {
         if (mem_owner[i] != p->pid)
             continue;
@@ -219,7 +284,8 @@ char *load_variable(PCB *p, char *var_name)
     if (p->mem_start < 0 || p->mem_end < p->mem_start || p->mem_end >= MEMORY_SIZE)
         return NULL;
 
-    for (int i = p->mem_start; i <= p->mem_end; ++i)
+    // Skip PCB metadata words when searching for variables.
+    for (int i = p->mem_start + PCB_WORDS; i <= p->mem_end; ++i)
     {
         if (mem_owner[i] != p->pid)
             continue;
@@ -244,6 +310,22 @@ void print_memory(void)
         const char *name = (memory[i].name[0] != '\0') ? memory[i].name : "-";
         const char *value = (memory[i].value[0] != '\0') ? memory[i].value : "-";
         printf("%3d | %5d | %-30s | %s\n", i, mem_owner[i], name, value);
+    }
+
+    printf("======================================================\n");
+}
+
+void print_swap_space(void)
+{
+    printf("==================== SWAP SPACE DUMP =================\n");
+    printf("Idx | Owner | Name                           | Value\n");
+    printf("------------------------------------------------------\n");
+
+    for (int i = 0; i < MEMORY_SIZE; ++i)
+    {
+        const char *name = (swap_space[i].name[0] != '\0') ? swap_space[i].name : "-";
+        const char *value = (swap_space[i].value[0] != '\0') ? swap_space[i].value : "-";
+        printf("%3d | %5d | %-30s | %s\n", i, swap_owner[i], name, value);
     }
 
     printf("======================================================\n");

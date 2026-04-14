@@ -5,8 +5,25 @@ int main(void)
     init_memory();
     init_mutexes();
 
-    // Initialize scheduler with HRRN (can switch to SCHED_RR if desired)
+    // Optional: enable curses-based TUI
+    printf("Use curses TUI? 0=No, 1=Yes > ");
+    int use_tui = 0;
+    if (scanf("%d", &use_tui) != 1)
+        use_tui = 0;
+    ui_init(use_tui != 0);
+
+    // Let the user choose the scheduler algorithm at runtime
+    printf("Select scheduler: 0=HRRN, 1=RR, 2=MLFQ > ");
+    int choice = 0;
+    if (scanf("%d", &choice) != 1)
+        choice = 0;
+
     SchedulerType scheduler_algo = SCHED_HRRN;
+    if (choice == 1)
+        scheduler_algo = SCHED_RR;
+    else if (choice == 2)
+        scheduler_algo = SCHED_MLFQ;
+
     init_scheduler(scheduler_algo);
 
     // Create three processes from the three program files
@@ -27,7 +44,8 @@ int main(void)
             return 1;
         }
         procs[i]->state = NEW;
-        procs[i]->burst_time = procs[i]->num_instructions;
+        procs[i]->burst_time = procs[i]->num_instructions;     // total
+        procs[i]->remaining_time = procs[i]->num_instructions; // remaining
         procs[i]->waiting_time = 0;
     }
 
@@ -77,7 +95,15 @@ int main(void)
 
                     proc->state = READY;
                     proc->burst_time = proc->num_instructions;
+                    proc->remaining_time = proc->num_instructions;
                     proc->waiting_time = 0;
+                    // Mirror basic code metadata into simulated memory
+                    char len_buf[16];
+                    snprintf(len_buf, sizeof(len_buf), "%d", proc->num_instructions);
+                    store_variable(proc, "__prog_name", proc->program_name);
+                    store_variable(proc, "__prog_len", len_buf);
+                    if (proc->in_memory)
+                        pcb_flush_to_memory(proc);
                     add_to_ready(proc);
                     printf("[Time %d] PID %d arrived and entered ready queue.\n", current_time, proc->pid);
                     print_queues();
@@ -105,6 +131,7 @@ int main(void)
 
             printf("\n[Scheduler] No ready process; all remaining processes are blocked.\n");
             print_queues();
+            print_swap_space();
             break;
         }
 
@@ -125,10 +152,26 @@ int main(void)
 
         int quantum = 1;
         if (scheduler_algo == SCHED_RR)
+        {
             quantum = 2;
+        }
+        else if (scheduler_algo == SCHED_MLFQ)
+        {
+            int level = p->priority_level;
+            if (level < 0)
+                level = 0;
+            if (level > 3)
+                level = 3;
+            quantum = 1 << level; // 2^i for queue level i
+        }
 
         int executed_instructions = 0;
         p->state = RUNNING;
+        if (p->in_memory)
+            pcb_flush_to_memory(p);
+
+        // Update curses TUI for this scheduling step
+        ui_draw_step(current_time, scheduler_algo, p);
 
         while (executed_instructions < quantum && p->state == RUNNING && p->program_counter < p->num_instructions)
         {
@@ -148,7 +191,18 @@ int main(void)
             executed_instructions++;
         }
 
-        if (p->state == FINISHED || p->program_counter >= p->num_instructions || p->burst_time <= 0)
+        if (scheduler_algo == SCHED_MLFQ &&
+            p->state == RUNNING &&
+            p->program_counter < p->num_instructions &&
+            executed_instructions >= quantum)
+        {
+            // Time slice fully used: demote to lower-priority queue (up to level 3)
+            if (p->priority_level < 3)
+                p->priority_level++;
+            p->state = READY;
+            add_to_ready(p);
+        }
+        else if (p->state == FINISHED || p->program_counter >= p->num_instructions || p->remaining_time <= 0)
         {
             p->state = FINISHED;
         }
@@ -162,8 +216,12 @@ int main(void)
             add_to_ready(p);
         }
 
+        if (p->in_memory)
+            pcb_flush_to_memory(p);
+
         print_queues();
         print_memory();
+        print_swap_space();
 
         ++step;
         ++current_time;

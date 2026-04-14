@@ -1,0 +1,24 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "gcc",
+            "args": [
+                "-g",
+                "main.c", "ui.c",
+                "-o", "scheduler.exe",
+                "-I", "${workspaceFolder}/include",
+                "-L", "${workspaceFolder}/lib",
+                "-lpdcurses",
+                "-DHAVE_NO_INFOEX=1"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
