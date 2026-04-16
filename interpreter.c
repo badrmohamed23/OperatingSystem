@@ -43,8 +43,13 @@ void execute_instruction(PCB *p)
     }
 
     char line_buf[MAX_INSTRUCTION_LEN];
-    strncpy(line_buf, p->instructions[p->program_counter], MAX_INSTRUCTION_LEN - 1);
-    line_buf[MAX_INSTRUCTION_LEN - 1] = '\0';
+    if (!load_instruction(p, p->program_counter, line_buf, sizeof(line_buf)))
+    {
+        printf("[Interpreter] Failed to fetch instruction PC=%d for PID %d from memory.\n",
+               p->program_counter, p->pid);
+        p->state = FINISHED;
+        return;
+    }
 
     trim_whitespace(line_buf);
 
@@ -174,17 +179,36 @@ void execute_instruction(PCB *p)
         char *to_name = strtok(NULL, " ");
         char from_buf[MAX_VAR_VALUE];
         char to_buf[MAX_VAR_VALUE];
-        const char *from_val = "(undefined)";
-        const char *to_val = "(undefined)";
+        if (!from_name || !to_name ||
+            !sys_read_mem(p, from_name, from_buf, sizeof(from_buf)) ||
+            !sys_read_mem(p, to_name, to_buf, sizeof(to_buf)))
+        {
+            printf("[Interpreter] printFromTo missing bounds for PID %d.\n", p->pid);
+        }
+        else
+        {
+            int from_val = atoi(from_buf);
+            int to_val = atoi(to_buf);
 
-        if (from_name && sys_read_mem(p, from_name, from_buf, sizeof(from_buf)))
-            from_val = from_buf;
-        if (to_name && sys_read_mem(p, to_name, to_buf, sizeof(to_buf)))
-            to_val = to_buf;
-
-        char buffer[MAX_VAR_VALUE * 2 + 64];
-        snprintf(buffer, sizeof(buffer), "PID %d: from %s to %s\n", p->pid, from_val, to_val);
-        sys_print(buffer);
+            if (from_val <= to_val)
+            {
+                for (int i = from_val + 1; i < to_val; ++i)
+                {
+                    char out[64];
+                    snprintf(out, sizeof(out), "%d\n", i);
+                    sys_print(out);
+                }
+            }
+            else
+            {
+                for (int i = from_val - 1; i > to_val; --i)
+                {
+                    char out[64];
+                    snprintf(out, sizeof(out), "%d\n", i);
+                    sys_print(out);
+                }
+            }
+        }
     }
     // ------------------------------------------------------
     // writeFile a b  (a = filename var, b = data var)

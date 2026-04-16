@@ -11,6 +11,7 @@
    ======================================================================== */
 #define MEMORY_SIZE 40          // number of memory words
 #define PCB_WORDS 4             // number of words reserved for PCB metadata in each block
+#define PROCESS_VAR_SLOTS 3     // fixed variable slots per process
 #define MAX_VAR_NAME 32         // max length of variable name
 #define MAX_VAR_VALUE 256       // max length of variable value (string)
 #define MAX_INSTRUCTION_LEN 256 // max length of one line of program code
@@ -145,6 +146,13 @@ void ui_draw_step(int current_time, SchedulerType algo, PCB *running);
 // Swap support for Phase 5
 bool swap_out(PCB *p);
 bool swap_in(PCB *p);
+
+// Build an in-memory image for a process:
+// [PCB_WORDS][PROCESS_VAR_SLOTS][INSTR_0..INSTR_n-1]
+bool load_process_into_memory(PCB *p);
+
+// Fetch instruction text by logical PC from the process memory image.
+bool load_instruction(PCB *p, int pc, char *out_buffer, int max_size);
 
 /* ========================================================================
    Process creation and interpreter (Member 1)

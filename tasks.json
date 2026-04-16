@@ -7,12 +7,21 @@
             "command": "gcc",
             "args": [
                 "-g",
-                "main.c", "ui.c",
-                "-o", "scheduler.exe",
-                "-I", "${workspaceFolder}/include",
-                "-L", "${workspaceFolder}/lib",
-                "-lpdcurses",
-                "-DHAVE_NO_INFOEX=1"
+                "-DUSE_CURSES_UI",
+                "main.c",
+                "interpreter.c",
+                "os_memory.c",
+                "process.c",
+                "queue.c",
+                "scheduler.c",
+                "syscalls.c",
+                "ui.c",
+                "-I",
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/lib/pdcurses.a",
+                "-o",
+                "os_sim.exe",
+                "-lm"
             ],
             "group": {
                 "kind": "build",

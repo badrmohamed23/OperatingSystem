@@ -91,8 +91,8 @@ int main(void)
                 {
                     if (proc->arrival_time <= current_time)
                     {
-                        // Allocate memory
-                        if (!allocate_memory_block(proc))
+                        // Allocate and load complete process image into memory
+                        if (!load_process_into_memory(proc))
                         {
                             printf("❌ [Memory] Failed to allocate memory for PID %d\n", proc->pid);
                             return 1;
@@ -102,11 +102,6 @@ int main(void)
                         proc->burst_time = proc->num_instructions;
                         proc->remaining_time = proc->num_instructions;
                         proc->waiting_time = 0;
-                        // Mirror basic code metadata into simulated memory
-                        char len_buf[16];
-                        snprintf(len_buf, sizeof(len_buf), "%d", proc->num_instructions);
-                        store_variable(proc, "__prog_name", proc->program_name);
-                        store_variable(proc, "__prog_len", len_buf);
                         if (proc->in_memory)
                             pcb_flush_to_memory(proc);
                         add_to_ready(proc);
