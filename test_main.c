@@ -32,6 +32,9 @@ int main(void)
 
         SchedulerType scheduler_algo = schedulers[sched_idx];
 
+        printf("[INIT] Reinitializing memory...\n");
+        init_memory();
+
         printf("[INIT] Reinitializing mutexes...\n");
         init_mutexes();
 
@@ -165,7 +168,6 @@ int main(void)
                     break;
                 }
 
-                p->program_counter++;
                 executed_instructions++;
                 step++;
                 total_steps++;
@@ -236,6 +238,9 @@ int main(void)
         {
             if (procs[i])
             {
+                if (procs[i]->in_memory)
+                    free_memory_block(procs[i]);
+
                 for (int j = 0; j < procs[i]->num_instructions; ++j)
                     free(procs[i]->instructions[j]);
                 free(procs[i]->instructions);

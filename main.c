@@ -8,6 +8,14 @@ typedef struct
     PCB *pcb;
 } ProcessSpec;
 
+static void discard_stdin_line(void)
+{
+    int ch;
+    while ((ch = getchar()) != '\n' && ch != EOF)
+    {
+    }
+}
+
 static PCB *choose_swap_victim(ProcessSpec *specs, int count, int exclude_pid)
 {
     for (int i = 0; i < count; ++i)
@@ -80,6 +88,7 @@ int main(void)
     int use_tui = 0;
     if (scanf("%d", &use_tui) != 1)
         use_tui = 0;
+    discard_stdin_line();
     ui_init(use_tui != 0);
 
     // Let the user choose the scheduler algorithm at runtime
@@ -87,6 +96,7 @@ int main(void)
     int choice = 0;
     if (scanf("%d", &choice) != 1)
         choice = 0;
+    discard_stdin_line();
 
     SchedulerType scheduler_algo = SCHED_HRRN;
     if (choice == 1)

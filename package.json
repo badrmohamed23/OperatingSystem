@@ -1,0 +1,12 @@
+{
+  "name": "os-simulator-dashboard",
+  "version": "1.0.0",
+  "description": "OS simulator API + live dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

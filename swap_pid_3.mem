@@ -1,0 +1,18 @@
+PID 3
+WORDS 16
+0|PID|3
+1|STATE|3
+2|PC|4
+3|BOUNDS|0-15
+4|a|8
+5||
+6||
+7|INSTR_0|semWait userInput
+8|INSTR_1|assign a input
+9|INSTR_2|semSignal userInput
+10|INSTR_3|semWait file
+11|INSTR_4|assign b readFile a
+12|INSTR_5|semSignal file
+13|INSTR_6|semWait userOutput
+14|INSTR_7|print b
+15|INSTR_8|semSignal userOutput
