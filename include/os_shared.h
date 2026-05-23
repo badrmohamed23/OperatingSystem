@@ -179,7 +179,7 @@ void sys_input(char *buffer, int size);
 bool sys_readFile(const char *filename, char *out_buffer, int max_size);
 bool sys_writeFile(const char *filename, const char *data);
 
-// Memory access wrappers around Member 2's memory functions
+// Memory access wrappers around Member 2's functions
 // Write a variable value into the process's memory block
 bool sys_write_mem(PCB *p, const char *var_name, const char *value);
 

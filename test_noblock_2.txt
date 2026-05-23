@@ -1,5 +1,0 @@
-semWait userOutput
-print A
-print B
-semSignal userOutput
-print Test

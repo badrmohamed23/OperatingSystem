@@ -1,33 +1,29 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "build",
-            "type": "shell",
-            "command": "gcc",
-            "args": [
-                "-g",
-                "-DUSE_CURSES_UI",
-                "main.c",
-                "interpreter.c",
-                "os_memory.c",
-                "process.c",
-                "queue.c",
-                "scheduler.c",
-                "syscalls.c",
-                "ui.c",
-                "-I",
-                "${workspaceFolder}/include",
-                "${workspaceFolder}/lib/pdcurses.a",
-                "-o",
-                "os_sim.exe",
-                "-lm"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": ["$gcc"]
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "-g",
+        "main.c",
+        "interpreter.c",
+        "os_memory.c",
+        "process.c",
+        "queue.c",
+        "scheduler.c",
+        "syscalls.c",
+
+        "-o",
+        "os_sim.exe",
+        "-lm"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
 }

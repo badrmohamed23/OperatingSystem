@@ -1,5 +1,0 @@
-semWait userOutput
-print X
-print Y
-print Z
-semSignal userOutput

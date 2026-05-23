@@ -83,13 +83,7 @@ int main(void)
     init_memory();
     init_mutexes();
 
-    // Optional: enable curses-based TUI
-    printf("Use curses TUI? 0=No, 1=Yes > ");
-    int use_tui = 0;
-    if (scanf("%d", &use_tui) != 1)
-        use_tui = 0;
-    discard_stdin_line();
-    ui_init(use_tui != 0);
+    // UI removed for simplified build — run entirely in console mode.
 
     // Let the user choose the scheduler algorithm at runtime
     printf("Select scheduler: 0=HRRN, 1=RR, 2=MLFQ > ");
@@ -107,9 +101,9 @@ int main(void)
     init_scheduler(scheduler_algo);
 
     ProcessSpec specs[] = {
-        {1, "Program 1.txt", 0, NULL},
-        {2, "Program_2.txt", 1, NULL},
-        {3, "Program_3.txt", 4, NULL},
+        {1, "programs/Program 1.txt", 0, NULL},
+        {2, "programs/Program_2.txt", 1, NULL},
+        {3, "programs/Program_3.txt", 4, NULL},
     };
     int spec_count = (int)(sizeof(specs) / sizeof(specs[0]));
 
@@ -223,7 +217,7 @@ int main(void)
         if (p->in_memory)
             pcb_flush_to_memory(p);
 
-        ui_draw_step(current_time, scheduler_algo, p);
+        // UI removed: no graphical update.
 
         while (executed_instructions < quantum && p->state == RUNNING && p->program_counter < p->num_instructions)
         {
@@ -288,6 +282,6 @@ int main(void)
     print_memory();
     print_swap_space();
 
-    ui_shutdown();
+    // UI removed: nothing to shutdown.
     return 0;
 }
