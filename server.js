@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 3000;
 const MEMORY_SIZE = 40;
 const PCB_WORDS = 4;
 const PROCESS_VAR_SLOTS = 3;
+const PROGRAMS_DIR = path.join(__dirname, "programs");
 
 const DEFAULT_PROGRAMS = [
   { pid: 1, file: "Program 1.txt", arrival: 0 },
@@ -24,7 +25,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "frontend")));
 
 function readProgramInstructions(file) {
-  const fullPath = path.join(__dirname, file);
+  const fullPath = path.join(PROGRAMS_DIR, file);
   const raw = fs.readFileSync(fullPath, "utf8");
   return raw
     .split(/\r?\n/)
@@ -804,7 +805,7 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/programs", (req, res) => {
   const programs = DEFAULT_PROGRAMS.map((item) => {
-    const fullPath = path.join(__dirname, item.file);
+    const fullPath = path.join(PROGRAMS_DIR, item.file);
     const exists = fs.existsSync(fullPath);
     const instructions = exists ? readProgramInstructions(item.file) : [];
 
@@ -852,7 +853,7 @@ app.post("/api/simulate", (req, res) => {
           .status(400)
           .json({ error: `Process ${proc.pid} missing file` });
       }
-      const fullPath = path.join(__dirname, proc.file);
+      const fullPath = path.join(PROGRAMS_DIR, proc.file);
       if (!fs.existsSync(fullPath)) {
         return res
           .status(400)
