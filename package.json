@@ -2,9 +2,11 @@
   "name": "os-simulator-dashboard",
   "version": "1.0.0",
   "description": "OS simulator API + live dashboard",
-  "main": "server.js",
+  "main": "backend/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node backend/server.js",
+    "build:c": "make build",
+    "test": "make test"
   },
   "dependencies": {
     "express": "^4.21.2"

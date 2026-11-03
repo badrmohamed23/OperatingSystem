@@ -1,0 +1,38 @@
+# Build artifacts
+*.o
+*.exe
+os_simulator
+build/
+.build/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Simulator artifacts
+/tmp/os_sim/
+*.log
+dashboard_output.txt
+test_file.txt
+syscall_test.txt
+input
+sandbox/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Environment
+.env
+.env.local

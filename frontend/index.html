@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Modern OS Simulator Dashboard</title>
+    <title>Operating System Simulator — Engineering Dashboard</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -12,45 +12,62 @@
       <aside class="sidebar">
         <div class="brand">
           <div class="logo">OS</div>
-          <h2>Simulator</h2>
+          <div>
+            <h2>OS Simulator</h2>
+            <div class="subbrand">C Engine Dashboard</div>
+          </div>
         </div>
 
         <div class="sidebar-section">
           <button id="runSimulationBtn" class="btn primary">▶ Run Simulation</button>
-          <button id="loadDefaultsBtn" class="btn ghost">↺ Reset</button>
+          <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <button id="loadDefaultsBtn" class="btn ghost" style="flex:1;">↺ Reset</button>
+            <button id="compareBtn" class="btn secondary" style="flex:1;">📊 Compare</button>
+          </div>
         </div>
 
         <div class="sidebar-section playback-box">
-          <h3 class="section-title">Playback</h3>
+          <h3 class="section-title">Playback & Stepping</h3>
           <div class="slider-row">
-            <button id="prevStepBtn" class="btn small ghost">◀</button>
+            <button id="prevStepBtn" class="btn small ghost" title="Step backward">◀</button>
             <input id="stepSlider" type="range" min="0" max="0" value="0" />
-            <button id="nextStepBtn" class="btn small ghost">▶</button>
+            <button id="nextStepBtn" class="btn small ghost" title="Step forward">▶</button>
           </div>
           <div class="slider-row" style="margin-top: 10px;">
             <button id="autoPlayBtn" class="btn primary small" style="flex:1;">▶ Auto Run</button>
-            <input id="clockSpeedInput" type="number" min="100" step="100" value="500" title="Clock Speed (ms)" style="width: 70px; background: var(--bg-main); border: 1px solid var(--border); color: var(--text-main); padding: 4px; border-radius: var(--radius-sm); font-family: monospace; font-size: 0.7rem;" />
+            <input id="clockSpeedInput" type="number" min="50" step="50" value="400" title="Tick Delay (ms)" style="width: 70px; background: var(--bg-main); border: 1px solid var(--border); color: var(--text-main); padding: 4px; border-radius: var(--radius-sm); font-family: monospace; font-size: 0.75rem;" />
           </div>
           <p id="snapshotLabel" class="snapshot-label" style="margin-top: 10px;">Ready</p>
         </div>
 
         <div class="sidebar-section">
+          <label class="field" style="margin-bottom: 8px;">
+            <span>Predefined Scenario</span>
+            <select id="scenarioSelect">
+              <option value="">-- Custom Workload --</option>
+            </select>
+          </label>
+
           <div style="display: flex; gap: 8px;">
             <label class="field" style="flex: 2;">
               <span>Algorithm</span>
               <select id="schedulerSelect"></select>
             </label>
-            <label class="field" style="flex: 1;">
+            <label class="field" style="flex: 1;" id="rrQuantumField">
               <span>RR Q</span>
               <input id="rrQuantumInput" type="number" min="1" value="2" />
             </label>
           </div>
-          <h3 class="section-title" style="margin-top: 10px;">Processes</h3>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 6px;">
+            <h3 class="section-title" style="margin: 0;">Configured Processes</h3>
+            <button id="addProcessBtn" class="btn small ghost" title="Add new process" style="padding: 2px 8px; font-size: 0.75rem;">+ Add Process</button>
+          </div>
           <div id="processConfigurator" class="process-configurator"></div>
         </div>
 
         <div class="sidebar-section" style="margin-top: auto; margin-bottom: 0;">
-          <h3 class="section-title">Summary</h3>
+          <h3 class="section-title">Engine Summary</h3>
           <div id="summaryCards" class="summary-cards"></div>
         </div>
       </aside>
@@ -61,24 +78,67 @@
         <header class="top-bar">
           <div class="core-status">
             <span id="coreDot" class="dot idle"></span>
-            System Core: <strong id="coreLabel">IDLE</strong>
+            Simulation Clock: <strong id="clockLabel">t = 0</strong> | Core State: <strong id="coreLabel">IDLE</strong>
           </div>
+          <div id="metricsBar" class="metrics-bar"></div>
         </header>
 
         <!-- DASHBOARD WORKSPACE -->
         <div class="workspace">
           
-          <!-- State Grid: Contains Processes, Queues, Mutexes, Memory -->
+          <!-- CPU Scheduling Gantt Chart -->
+          <section class="panel-box gantt-box">
+            <div class="panel-header">
+              <span>CPU Scheduling Timeline (Gantt Chart)</span>
+              <span id="ganttLegend" class="legend-row"></span>
+            </div>
+            <div id="ganttContainer" class="gantt-container">
+              <div class="empty-state">Run simulation to view CPU execution timeline</div>
+            </div>
+          </section>
+
+          <!-- Process State & Metrics Table -->
+          <section class="panel-box table-box">
+            <div class="panel-header">
+              <span>Process Control Blocks (PCB) Live State</span>
+            </div>
+            <div class="table-responsive">
+              <table class="styled-table" id="processTable">
+                <thead>
+                  <tr>
+                    <th>PID</th>
+                    <th>State</th>
+                    <th>Program</th>
+                    <th>PC / Total</th>
+                    <th>Priority</th>
+                    <th>Arrival</th>
+                    <th>Wait Time</th>
+                    <th>Response Time</th>
+                    <th>Turnaround</th>
+                    <th>Completed</th>
+                  </tr>
+                </thead>
+                <tbody id="processTableBody">
+                  <tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:16px;">No process state loaded</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- State Grid: Memory, Queues, Mutexes -->
           <div id="stateGrid" class="state-grid"></div>
 
           <!-- Logs Panel -->
           <div class="logs-panel">
             <div class="log-half">
-              <div class="panel-header">Output</div>
+              <div class="panel-header">Standard Output & System Calls</div>
               <div id="outputList" class="console-list"></div>
             </div>
             <div class="log-half">
-              <div class="panel-header">Execution Log</div>
+              <div class="panel-header">
+                <span>Deterministic Event Trace</span>
+                <span id="eventFilterBtns" class="filter-btns"></span>
+              </div>
               <div id="timelineList" class="console-list"></div>
             </div>
           </div>
@@ -87,24 +147,37 @@
       </main>
     </div>
 
-    <!-- Hidden elements -->
-    <div style="display: none;">
-      <div id="runtimePulse"></div>
-      <pre id="apiRequest"></pre>
-      <pre id="apiResponse"></pre>
-      <div id="errorList"></div>
+    <!-- Algorithm Comparison Modal -->
+    <div id="comparisonModal" class="modal-overlay" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>📊 Algorithm Performance Benchmark</h3>
+          <button id="closeModalBtn" class="close-btn">&times;</button>
+        </div>
+        <p class="modal-desc">Evaluating identical workload across <strong>HRRN</strong>, <strong>Round Robin</strong>, and <strong>MLFQ</strong> scheduling policies.</p>
+        <div id="comparisonResults" class="comparison-body"></div>
+      </div>
     </div>
 
-    <!-- Template for Process config -->
+    <!-- Template for Process Config -->
     <template id="processTemplate">
       <div class="process-item">
         <div class="process-header">
-          <h3></h3>
-          <span class="program-file"></span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="pid-badge"></span>
+            <select class="program-file-select" title="Program Source"></select>
+          </div>
+          <button class="remove-process-btn" title="Remove Process">&times;</button>
         </div>
         <div class="process-inputs">
-          <input class="arrival-input" type="number" placeholder="Arr" title="Arrival Time" />
-          <input class="input-map" type="text" placeholder="{}" title="Input Map (JSON)" />
+          <label style="flex:1;">
+            <span style="font-size:0.65rem; color:var(--text-muted);">Arrival</span>
+            <input class="arrival-input" type="number" min="0" placeholder="0" title="Arrival Time" />
+          </label>
+          <label style="flex:2;">
+            <span style="font-size:0.65rem; color:var(--text-muted);">Inputs (JSON)</span>
+            <input class="input-map" type="text" placeholder='{"x":"2"}' title="Input Map" />
+          </label>
         </div>
       </div>
     </template>

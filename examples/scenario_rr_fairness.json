@@ -1,0 +1,13 @@
+{
+  "name": "Round Robin Fairness",
+  "description": "Multiple CPU-bound processes with different arrival times demonstrate quantum expiration and queue rotation.",
+  "config": {
+    "scheduler": "RR",
+    "rrQuantum": 2,
+    "processes": [
+      {"pid": 1, "file": "test_cpu_bound.txt", "arrival": 0, "inputMap": {}},
+      {"pid": 2, "file": "test_simple.txt", "arrival": 0, "inputMap": {}},
+      {"pid": 3, "file": "test_simple.txt", "arrival": 1, "inputMap": {}}
+    ]
+  }
+}

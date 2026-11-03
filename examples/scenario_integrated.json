@@ -1,0 +1,12 @@
+{
+  "name": "Integrated Scenario",
+  "description": "Combines process arrivals, CPU scheduling, memory pressure, and synchronization in one comprehensive demo.",
+  "config": {
+    "scheduler": "MLFQ",
+    "processes": [
+      {"pid": 1, "file": "Program 1.txt", "arrival": 0, "inputMap": {"x": "2", "y": "7"}},
+      {"pid": 2, "file": "Program_2.txt", "arrival": 1, "inputMap": {"a": "sim_output.txt", "b": "hello world"}},
+      {"pid": 3, "file": "Program_3.txt", "arrival": 4, "inputMap": {"a": "sim_output.txt"}}
+    ]
+  }
+}

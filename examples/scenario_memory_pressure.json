@@ -1,0 +1,13 @@
+{
+  "name": "Memory Pressure",
+  "description": "Processes whose combined memory requirements exceed available simulated memory demonstrate swapping.",
+  "config": {
+    "scheduler": "RR",
+    "rrQuantum": 2,
+    "processes": [
+      {"pid": 1, "file": "Program 1.txt", "arrival": 0, "inputMap": {"x": "1", "y": "5"}},
+      {"pid": 2, "file": "Program_2.txt", "arrival": 0, "inputMap": {"a": "out.txt", "b": "data"}},
+      {"pid": 3, "file": "Program_3.txt", "arrival": 1, "inputMap": {"a": "out.txt"}}
+    ]
+  }
+}

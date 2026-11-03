@@ -1,0 +1,13 @@
+{
+  "name": "Mutex Contention",
+  "description": "Multiple processes attempting to access the same file resource demonstrate blocking and unblocking.",
+  "config": {
+    "scheduler": "RR",
+    "rrQuantum": 2,
+    "processes": [
+      {"pid": 1, "file": "test_mutex.txt", "arrival": 0, "inputMap": {}},
+      {"pid": 2, "file": "test_mutex.txt", "arrival": 0, "inputMap": {}},
+      {"pid": 3, "file": "test_mutex.txt", "arrival": 1, "inputMap": {}}
+    ]
+  }
+}

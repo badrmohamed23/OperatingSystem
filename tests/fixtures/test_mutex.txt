@@ -1,0 +1,5 @@
+semWait file
+assign a test_output.txt
+assign b mutex_test_data
+writeFile a b
+semSignal file

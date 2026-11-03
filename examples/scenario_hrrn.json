@@ -1,0 +1,12 @@
+{
+  "name": "HRRN Selection",
+  "description": "Processes with different waiting and service times demonstrate response ratio calculation.",
+  "config": {
+    "scheduler": "HRRN",
+    "processes": [
+      {"pid": 1, "file": "test_cpu_bound.txt", "arrival": 0, "inputMap": {}},
+      {"pid": 2, "file": "test_simple.txt", "arrival": 1, "inputMap": {}},
+      {"pid": 3, "file": "test_simple.txt", "arrival": 2, "inputMap": {}}
+    ]
+  }
+}
